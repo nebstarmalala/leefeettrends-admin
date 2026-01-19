@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Trash2, Eye, Mail, Search, Filter, MessageSquare, ArrowLeft, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import StatusBadge from '@/components/ui/status-badge'
 import { useAlert } from '@/context/alert-context'
 import ConfirmationModal from './confirmation-modal'
+import { ContactService } from '@/services/contact-service'
+import { ContactMessage as DBContactMessage } from '@/types/database'
 
 interface ContactMessage {
   id: string
@@ -17,62 +19,44 @@ interface ContactMessage {
   date: string
 }
 
-const initialMessages: ContactMessage[] = [
-  {
-    id: '1',
-    name: 'Jennifer Lee',
-    email: 'jen@example.com',
-    phone: '(555) 111-2222',
-    subject: 'Question about shoe sizes',
-    message: 'Hi, I would like to know if you have the Running Shoe Pro in size 12. Also, what is the return policy?',
-    status: 'New',
-    date: 'Jan 19, 2026',
-  },
-  {
-    id: '2',
-    name: 'Robert Martinez',
-    email: 'robert@example.com',
-    phone: '(555) 222-3333',
-    subject: 'Order inquiry',
-    message: 'I placed an order 2 weeks ago and still haven\'t received it. Order #ORD-2024-102. Please advise.',
-    status: 'Replied',
-    date: 'Jan 18, 2026',
-  },
-  {
-    id: '3',
-    name: 'Lisa Anderson',
-    email: 'lisa@example.com',
-    phone: '(555) 333-4444',
-    subject: 'Product review request',
-    message: 'I would like to provide a review of the Basketball High Top shoes I purchased. They are amazing!',
-    status: 'New',
-    date: 'Jan 18, 2026',
-  },
-  {
-    id: '4',
-    name: 'David Thompson',
-    email: 'david@example.com',
-    phone: '(555) 444-5555',
-    subject: 'Bulk order inquiry',
-    message: 'We are interested in ordering 50 pairs of Casual Loafers for our company event. Can you provide a quote?',
-    status: 'Pending',
-    date: 'Jan 17, 2026',
-  },
-  {
-    id: '5',
-    name: 'Michelle White',
-    email: 'michelle@example.com',
-    phone: '(555) 555-6666',
-    subject: 'Defective product',
-    message: 'The sole on my Hiking Boot started peeling after one month. I would like a replacement or refund.',
-    status: 'Replied',
-    date: 'Jan 17, 2026',
-  },
-]
+const mapDBContactMessageToContactMessage = (dbMessage: DBContactMessage): ContactMessage => {
+  const status = String(dbMessage.status);
+  const capitalizeStatus = status.charAt(0).toUpperCase() + status.slice(1);
+  
+  return {
+    id: dbMessage.id.toString(),
+    name: dbMessage.name,
+    email: dbMessage.email,
+    phone: '(555) 123-4567', // Default since phone field not in DB schema
+    subject: dbMessage.subject || 'No Subject',
+    message: dbMessage.message,
+    status: capitalizeStatus,
+    date: new Date(dbMessage.created_at).toLocaleDateString(),
+  };
+};
 
 export default function ContactMessages() {
   const { addAlert } = useAlert()
-  const [messages, setMessages] = useState<ContactMessage[]>(initialMessages)
+  const [messages, setMessages] = useState<ContactMessage[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        setLoading(true)
+        const dbMessages = await ContactService.getAll()
+        const mappedMessages = dbMessages.map(mapDBContactMessageToContactMessage)
+        setMessages(mappedMessages)
+      } catch (error: any) {
+        console.error('Failed to load messages:', error)
+        addAlert('error', 'Error', 'Failed to load messages')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadMessages()
+  }, [addAlert])
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null)
@@ -88,8 +72,8 @@ export default function ContactMessages() {
     if (!messageToDelete) return
     setIsDeleting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setMessages(messages.filter((m) => m.id !== messageToDelete))
+      await ContactService.delete(parseInt(messageToDelete))
+      setMessages(messages.filter((m: ContactMessage) => m.id !== messageToDelete))
       addAlert('success', 'Deleted', 'Message has been deleted successfully')
       setShowDeleteConfirm(false)
       setMessageToDelete(null)
@@ -103,13 +87,18 @@ export default function ContactMessages() {
     }
   }
 
-  const updateStatus = (id: string, newStatus: string) => {
-    setMessages(
-      messages.map((m) =>
-        m.id === id ? { ...m, status: newStatus } : m
+  const updateStatus = async (id: string, newStatus: string) => {
+    try {
+      await ContactService.updateStatus(parseInt(id), newStatus as any)
+      setMessages(
+        messages.map((m: ContactMessage) =>
+          m.id === id ? { ...m, status: newStatus } : m
+        )
       )
-    )
-    addAlert('success', 'Status Updated', `Message status changed to ${newStatus}`)
+      addAlert('success', 'Status Updated', `Message status changed to ${newStatus}`)
+    } catch (error) {
+      addAlert('error', 'Error', 'Failed to update status')
+    }
   }
 
   const filteredMessages = messages.filter(
@@ -118,6 +107,17 @@ export default function ContactMessages() {
       message.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       message.subject.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  if (loading) {
+    return (
+      <div className="p-8 bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading messages...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Message Detail View
   if (selectedMessage) {

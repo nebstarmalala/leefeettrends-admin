@@ -1,45 +1,75 @@
+import { useState, useEffect } from 'react'
 import StatusBadge from '@/components/ui/status-badge'
 import { ArrowUpRight } from 'lucide-react'
-
-const recentOrders = [
-  {
-    id: '#ORD-001',
-    customer: 'John Smith',
-    amount: '$245.00',
-    status: 'Completed',
-    time: '2 min ago',
-  },
-  {
-    id: '#ORD-002',
-    customer: 'Sarah Johnson',
-    amount: '$189.50',
-    status: 'Processing',
-    time: '15 min ago',
-  },
-  {
-    id: '#ORD-003',
-    customer: 'Mike Davis',
-    amount: '$412.30',
-    status: 'Pending',
-    time: '1 hour ago',
-  },
-  {
-    id: '#ORD-004',
-    customer: 'Emily Brown',
-    amount: '$156.75',
-    status: 'Completed',
-    time: '2 hours ago',
-  },
-  {
-    id: '#ORD-005',
-    customer: 'Alex Wilson',
-    amount: '$298.00',
-    status: 'Shipped',
-    time: '3 hours ago',
-  },
-]
+import { OrderService, OrderItemService } from '@/services/order-service'
+import { CustomerService } from '@/services/customer-service'
 
 export default function RecentOrders() {
+  const [loading, setLoading] = useState(true)
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadRecentOrders = async () => {
+      try {
+        setLoading(true)
+        
+        const [orders, orderItems, customers] = await Promise.all([
+          OrderService.getAll(),
+          OrderItemService.getAll(),
+          CustomerService.getAll()
+        ])
+
+        // Get recent orders with customer info and calculate amounts
+        const recentOrdersData = orders.slice(0, 5).map((order: any) => {
+          const customer = customers.find((c: any) => c.id === order.customer_id)
+          const orderItemAmount = orderItems
+            .filter((item: any) => item.order_id === order.id)
+            .reduce((sum: any, item: any) => sum + item.total_price, 0)
+          
+          // Calculate time ago (mock for now)
+          const now = new Date()
+          const orderTime = new Date(order.created_at)
+          const diffInHours = (now.getTime() - orderTime.getTime()) / (1000 * 60 * 60)
+          let timeAgo = 'Just now'
+          
+          if (diffInHours < 1) {
+            timeAgo = `${Math.floor(diffInHours * 60)} min ago`
+          } else if (diffInHours < 24) {
+            timeAgo = `${Math.floor(diffInHours)} hours ago`
+          } else {
+            timeAgo = `${Math.floor(diffInHours / 24)} days ago`
+          }
+          
+          return {
+            id: `#ORD-${order.order_number}`,
+            customer: customer?.name || 'Unknown',
+            amount: `$${orderItemAmount.toFixed(2)}`,
+            status: order.status.charAt(0).toUpperCase() + order.status.slice(1),
+            time: timeAgo,
+          }
+        })
+
+        setRecentOrders(recentOrdersData)
+      } catch (error: any) {
+        console.error('Failed to load recent orders:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadRecentOrders()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-muted-foreground text-xs">Loading...</p>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 h-full">
       <div className="flex items-center justify-between mb-4 sm:mb-6">

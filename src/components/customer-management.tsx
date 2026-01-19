@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Trash2, Edit2, Eye, Search, Filter, Users, ArrowLeft, Mail, Phone, MapPin, ShoppingBag, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import StatusBadge from '@/components/ui/status-badge'
 import { useAlert } from '@/context/alert-context'
 import ConfirmationModal from './confirmation-modal'
+import { CustomerService } from '@/services/customer-service'
+import { Customer as DBCustomer } from '@/types/database'
 
 interface Customer {
   id: string
@@ -18,72 +20,45 @@ interface Customer {
   joinDate: string
 }
 
-const initialCustomers: Customer[] = [
-  {
-    id: '1',
-    name: 'John Smith',
-    email: 'john@example.com',
-    phone: '(555) 123-4567',
-    location: 'New York, NY',
-    orders: 5,
-    spent: 1245.99,
-    status: 'Active',
-    joinDate: 'Dec 15, 2025',
-  },
-  {
-    id: '2',
-    name: 'Sarah Johnson',
-    email: 'sarah@example.com',
-    phone: '(555) 234-5678',
-    location: 'Los Angeles, CA',
-    orders: 8,
-    spent: 2156.50,
-    status: 'Active',
-    joinDate: 'Nov 20, 2025',
-  },
-  {
-    id: '3',
-    name: 'Mike Davis',
-    email: 'mike@example.com',
-    phone: '(555) 345-6789',
-    location: 'Chicago, IL',
-    orders: 3,
-    spent: 412.97,
-    status: 'Active',
-    joinDate: 'Jan 5, 2026',
-  },
-  {
-    id: '4',
-    name: 'Emily Brown',
-    email: 'emily@example.com',
-    phone: '(555) 456-7890',
-    location: 'Houston, TX',
-    orders: 2,
-    spent: 189.99,
-    status: 'Inactive',
-    joinDate: 'Oct 12, 2025',
-  },
-  {
-    id: '5',
-    name: 'Alex Wilson',
-    email: 'alex@example.com',
-    phone: '(555) 567-8901',
-    location: 'Phoenix, AZ',
-    orders: 12,
-    spent: 3598.45,
-    status: 'Active',
-    joinDate: 'Aug 30, 2025',
-  },
-]
+const mapDBCustomerToCustomer = (dbCustomer: DBCustomer): Customer => ({
+  id: dbCustomer.id.toString(),
+  name: dbCustomer.name,
+  email: dbCustomer.email,
+  phone: dbCustomer.phone || 'N/A',
+  location: dbCustomer.address || 'N/A',
+  orders: 0,
+  spent: 0,
+  status: 'Active',
+  joinDate: new Date(dbCustomer.created_at).toLocaleDateString(),
+});
 
 export default function CustomerManagement() {
   const { addAlert } = useAlert()
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        setLoading(true)
+        const dbCustomers = await CustomerService.getAll()
+        const mappedCustomers = dbCustomers.map(mapDBCustomerToCustomer)
+        setCustomers(mappedCustomers)
+      } catch (error) {
+        console.error('Failed to load customers:', error)
+        addAlert('error', 'Error', 'Failed to load customers')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadCustomers()
+  }, [addAlert])
 
   const handleDeleteClick = (id: string) => {
     setCustomerToDelete(id)
@@ -94,7 +69,7 @@ export default function CustomerManagement() {
     if (!customerToDelete) return
     setIsDeleting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await CustomerService.delete(parseInt(customerToDelete))
       const customer = customers.find((c) => c.id === customerToDelete)
       setCustomers(customers.filter((c) => c.id !== customerToDelete))
       addAlert('success', 'Deleted', `${customer?.name} has been removed successfully`)
@@ -250,6 +225,17 @@ export default function CustomerManagement() {
           onCancel={() => setShowDeleteConfirm(false)}
           isLoading={isDeleting}
         />
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading customers...</p>
+        </div>
       </div>
     )
   }

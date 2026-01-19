@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit2, Search, Filter, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,6 +6,8 @@ import StatusBadge, { getStockStatus } from '@/components/ui/status-badge'
 import ProductDetails from './product-details'
 import ConfirmationModal from './confirmation-modal'
 import { useAlert } from '@/context/alert-context'
+import { ProductService, CategoryService } from '@/services/product-service'
+import { Product as DBProduct, Category as DBCategory } from '@/types/database'
 
 interface Product {
   id: string
@@ -16,23 +18,51 @@ interface Product {
   category: string
 }
 
-const initialProducts: Product[] = [
-  { id: '1', name: 'Running Shoe Pro', sku: 'RS-001', price: 129.99, stock: 45, category: 'Running' },
-  { id: '2', name: 'Casual Loafer', sku: 'CL-002', price: 89.99, stock: 32, category: 'Casual' },
-  { id: '3', name: 'Basketball High Top', sku: 'BH-003', price: 149.99, stock: 18, category: 'Sports' },
-  { id: '4', name: 'Hiking Boot', sku: 'HB-004', price: 179.99, stock: 12, category: 'Outdoor' },
-  { id: '5', name: 'Slip-on Sneaker', sku: 'SN-005', price: 79.99, stock: 67, category: 'Casual' },
-]
+const mapDBProductToProduct = async (dbProduct: DBProduct, categories: DBCategory[]): Promise<Product> => {
+  const category = categories.find(c => c.id === dbProduct.category_id);
+  return {
+    id: dbProduct.id.toString(),
+    name: dbProduct.name,
+    sku: dbProduct.sku || 'N/A',
+    price: dbProduct.price,
+    stock: dbProduct.stock_quantity,
+    category: category?.name || 'Uncategorized'
+  };
+};
 
 export default function ProductManagement() {
   const { addAlert } = useAlert()
-  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [products, setProducts] = useState<Product[]>([])
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [isAddingNew, setIsAddingNew] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [productToDelete, setProductToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true)
+        const [dbProducts, categories] = await Promise.all([
+          ProductService.getAll(),
+          CategoryService.getAll()
+        ])
+        const mappedProducts = await Promise.all(
+          dbProducts.map(product => mapDBProductToProduct(product, categories))
+        )
+        setProducts(mappedProducts)
+      } catch (error) {
+        console.error('Failed to load products:', error)
+        addAlert('error', 'Error', 'Failed to load products')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadProducts()
+  }, [addAlert])
 
   const handleDeleteClick = (id: string) => {
     setProductToDelete(id)
@@ -43,7 +73,7 @@ export default function ProductManagement() {
     if (!productToDelete) return
     setIsDeleting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await ProductService.delete(parseInt(productToDelete))
       const product = products.find((p) => p.id === productToDelete)
       setProducts(products.filter((p) => p.id !== productToDelete))
       addAlert('success', 'Deleted', `${product?.name} has been deleted successfully`)
@@ -79,13 +109,24 @@ export default function ProductManagement() {
     )
   }
 
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading products...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Products</h2>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your footwear inventory</p>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your product inventory</p>
         </div>
         <Button
           onClick={() => setIsAddingNew(true)}

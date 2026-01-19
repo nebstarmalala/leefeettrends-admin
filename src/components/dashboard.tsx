@@ -1,62 +1,109 @@
+import { useState, useEffect } from 'react'
 import { ShoppingCart, Users, Package, DollarSign, ArrowUpRight, Calendar } from 'lucide-react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import MetricCard from './metric-card'
 import SalesChart from './sales-chart'
 import RecentOrders from './recent-orders'
-
-const salesByCategory = [
-  { name: 'Running', value: 4200 },
-  { name: 'Casual', value: 3800 },
-  { name: 'Sports', value: 2800 },
-  { name: 'Outdoor', value: 1900 },
-]
-
-const monthlyData = [
-  { month: 'Jan', sales: 4000, revenue: 24000 },
-  { month: 'Feb', sales: 3000, revenue: 18000 },
-  { month: 'Mar', sales: 2000, revenue: 12000 },
-  { month: 'Apr', sales: 2780, revenue: 16680 },
-  { month: 'May', sales: 1890, revenue: 11340 },
-  { month: 'Jun', sales: 2390, revenue: 14340 },
-]
+import { OrderService } from '@/services/order-service'
+import { CustomerService } from '@/services/customer-service'
+import { ProductService } from '@/services/product-service'
+import { query } from '@/lib/database'
 
 const COLORS = ['#f97316', '#10b981', '#3b82f6', '#8b5cf6']
 
 export default function Dashboard() {
-  const metrics = [
-    {
-      title: 'Total Revenue',
-      value: '$24,582',
-      change: '+12.5%',
-      trend: 'up' as const,
-      icon: DollarSign,
-      color: 'chart-1'
-    },
-    {
-      title: 'Orders Today',
-      value: '48',
-      change: '+8.2%',
-      trend: 'up' as const,
-      icon: ShoppingCart,
-      color: 'chart-2'
-    },
-    {
-      title: 'New Customers',
-      value: '12',
-      change: '+2.1%',
-      trend: 'up' as const,
-      icon: Users,
-      color: 'chart-3'
-    },
-    {
-      title: 'Inventory Count',
-      value: '2,345',
-      change: '-3.4%',
-      trend: 'down' as const,
-      icon: Package,
-      color: 'chart-4'
-    },
-  ]
+  const [loading, setLoading] = useState(true)
+  const [metrics, setMetrics] = useState<any[]>([])
+  const [salesByCategory, setSalesByCategory] = useState<any[]>([])
+  const [monthlyData, setMonthlyData] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true)
+        
+        // Load basic counts
+        const [orders, customers, products, recentOrders] = await Promise.all([
+          OrderService.getAll(),
+          CustomerService.getAll(),
+          ProductService.getAll(),
+          OrderService.getAll()
+        ])
+
+        // Calculate metrics
+        const totalRevenue = orders.reduce((sum: any, order: any) => sum + (order.total_amount || 0), 0)
+        const totalStock = products.reduce((sum: any, product: any) => sum + (product.stock_quantity || 0), 0)
+        
+        // Generate mock analytics data (in real app, this would come from DB)
+        setSalesByCategory([
+          { name: 'Electronics', value: Math.floor(totalRevenue * 0.4) },
+          { name: 'Clothing', value: Math.floor(totalRevenue * 0.3) },
+          { name: 'Home & Garden', value: Math.floor(totalRevenue * 0.2) },
+          { name: 'Books', value: Math.floor(totalRevenue * 0.1) },
+        ])
+
+        setMonthlyData([
+          { month: 'Jan', sales: orders.length, revenue: Math.floor(totalRevenue * 0.3) },
+          { month: 'Feb', sales: Math.floor(orders.length * 0.8), revenue: Math.floor(totalRevenue * 0.25) },
+          { month: 'Mar', sales: Math.floor(orders.length * 0.6), revenue: Math.floor(totalRevenue * 0.2) },
+          { month: 'Apr', sales: Math.floor(orders.length * 0.7), revenue: Math.floor(totalRevenue * 0.15) },
+          { month: 'May', sales: Math.floor(orders.length * 0.5), revenue: Math.floor(totalRevenue * 0.1) },
+        ])
+
+        setMetrics([
+          {
+            title: 'Total Revenue',
+            value: `$${totalRevenue.toLocaleString()}`,
+            change: '+12.5%',
+            trend: 'up' as const,
+            icon: DollarSign,
+            color: 'chart-1'
+          },
+          {
+            title: 'Total Orders',
+            value: orders.length.toString(),
+            change: '+8.2%',
+            trend: 'up' as const,
+            icon: ShoppingCart,
+            color: 'chart-2'
+          },
+          {
+            title: 'Total Customers',
+            value: customers.length.toString(),
+            change: '+2.1%',
+            trend: 'up' as const,
+            icon: Users,
+            color: 'chart-3'
+          },
+          {
+            title: 'Inventory Count',
+            value: totalStock.toLocaleString(),
+            change: '-3.4%',
+            trend: 'down' as const,
+            icon: Package,
+            color: 'chart-4'
+          },
+        ])
+      } catch (error: any) {
+        console.error('Failed to load dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboardData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen">

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Eye, Trash2, Search, Filter, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,6 +6,9 @@ import StatusBadge from '@/components/ui/status-badge'
 import OrderDetails from './order-details'
 import ConfirmationModal from './confirmation-modal'
 import { useAlert } from '@/context/alert-context'
+import { OrderService, OrderItemService } from '@/services/order-service'
+import { CustomerService } from '@/services/customer-service'
+import { Order as DBOrder, OrderItem as DBOrderItem, Customer as DBCustomer } from '@/types/database'
 
 interface Order {
   id: string
@@ -17,62 +20,60 @@ interface Order {
   date: string
 }
 
-const initialOrders: Order[] = [
-  {
-    id: '#ORD-2024-001',
-    customer: 'John Smith',
-    email: 'john@example.com',
-    items: 2,
-    total: 245.99,
-    status: 'Completed',
-    date: 'Jan 18, 2026',
-  },
-  {
-    id: '#ORD-2024-002',
-    customer: 'Sarah Johnson',
-    email: 'sarah@example.com',
-    items: 1,
-    total: 129.99,
-    status: 'Processing',
-    date: 'Jan 18, 2026',
-  },
-  {
-    id: '#ORD-2024-003',
-    customer: 'Mike Davis',
-    email: 'mike@example.com',
-    items: 3,
-    total: 412.97,
-    status: 'Pending',
-    date: 'Jan 17, 2026',
-  },
-  {
-    id: '#ORD-2024-004',
-    customer: 'Emily Brown',
-    email: 'emily@example.com',
-    items: 1,
-    total: 89.99,
-    status: 'Shipped',
-    date: 'Jan 17, 2026',
-  },
-  {
-    id: '#ORD-2024-005',
-    customer: 'Alex Wilson',
-    email: 'alex@example.com',
-    items: 4,
-    total: 598.95,
-    status: 'Completed',
-    date: 'Jan 16, 2026',
-  },
-]
+const mapDBOrderToOrder = (
+  dbOrder: any, 
+  orderItems: any[], 
+  customers: any[]
+): Order => {
+  const customer = customers.find((c: any) => c.id === dbOrder.customer_id);
+  const items = orderItems.filter((item: any) => item.order_id === dbOrder.id);
+  const itemCount = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+  
+  const status = String(dbOrder.status);
+  
+  return {
+    id: `#ORD-${dbOrder.order_number}`,
+    customer: customer?.name || 'Unknown Customer',
+    email: customer?.email || 'unknown@example.com',
+    items: itemCount,
+    total: dbOrder.total_amount,
+    status: status.charAt(0).toUpperCase() + status.slice(1),
+    date: new Date(dbOrder.created_at).toLocaleDateString(),
+  };
+};
 
 export default function OrderManagement() {
   const { addAlert } = useAlert()
-  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [orders, setOrders] = useState<Order[]>([])
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        setLoading(true)
+        const dbOrders = await OrderService.getAll()
+        const orderItems = await OrderItemService.getAll()
+        const customers = await CustomerService.getAll()
+        
+        const mappedOrders = dbOrders.map((order: DBOrder) => 
+          mapDBOrderToOrder(order, orderItems, customers)
+        )
+        setOrders(mappedOrders)
+      } catch (error: any) {
+        console.error('Failed to load orders:', error)
+        addAlert('error', 'Error', 'Failed to load orders')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadOrders()
+  }, [addAlert])
 
   const handleDeleteClick = (id: string) => {
     setOrderToDelete(id)
@@ -83,9 +84,10 @@ export default function OrderManagement() {
     if (!orderToDelete) return
     setIsDeleting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      const order = orders.find((o) => o.id === orderToDelete)
-      setOrders(orders.filter((o) => o.id !== orderToDelete))
+      const orderId = orderToDelete.replace('#ORD-', '')
+      await OrderService.delete(parseInt(orderId))
+      const order = orders.find((o: Order) => o.id === orderToDelete)
+      setOrders(orders.filter((o: Order) => o.id !== orderToDelete))
       addAlert('success', 'Deleted', `Order ${order?.id} has been deleted successfully`)
       setShowDeleteConfirm(false)
       setOrderToDelete(null)
@@ -102,6 +104,17 @@ export default function OrderManagement() {
       order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading orders...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (selectedOrderId) {
     return (

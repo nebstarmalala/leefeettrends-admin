@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise';
+import mysql, { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -25,7 +25,7 @@ const config: DatabaseConfig = {
   queueLimit: 0
 };
 
-const pool = mysql.createPool(config);
+const pool: Pool = mysql.createPool(config);
 
 export async function testConnection(): Promise<boolean> {
   try {
@@ -40,9 +40,9 @@ export async function testConnection(): Promise<boolean> {
   }
 }
 
-export async function query(sql: string, params?: any[]): Promise<any> {
+export async function query<T extends RowDataPacket[]>(sql: string, params?: unknown[]): Promise<T> {
   try {
-    const [rows] = await pool.execute(sql, params);
+    const [rows] = await pool.execute<T>(sql, params);
     return rows;
   } catch (error) {
     console.error('Database query error:', error);
@@ -50,8 +50,40 @@ export async function query(sql: string, params?: any[]): Promise<any> {
   }
 }
 
-export async function getConnection() {
+export async function execute(sql: string, params?: unknown[]): Promise<ResultSetHeader> {
+  try {
+    const [result] = await pool.execute<ResultSetHeader>(sql, params);
+    return result;
+  } catch (error) {
+    console.error('Database execute error:', error);
+    throw error;
+  }
+}
+
+export async function getConnection(): Promise<PoolConnection> {
   return await pool.getConnection();
+}
+
+export async function transaction<T>(
+  callback: (connection: PoolConnection) => Promise<T>
+): Promise<T> {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const result = await callback(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function closePool(): Promise<void> {
+  await pool.end();
+  console.log('Database pool closed');
 }
 
 export default pool;

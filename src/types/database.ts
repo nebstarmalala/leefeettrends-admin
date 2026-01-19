@@ -69,3 +69,30 @@ export interface User {
   created_at: Date;
   updated_at: Date;
 }
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface OrderWithItems extends Order {
+  items: OrderItem[];
+}
+
+export interface CreateOrderInput {
+  customer_id: number;
+  order_number: string;
+  status?: Order['status'];
+  total_amount: number;
+  shipping_address?: string;
+  notes?: string;
+  items: Omit<OrderItem, 'id' | 'order_id'>[];
+}

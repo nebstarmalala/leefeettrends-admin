@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { OrderService, OrderItemService } from '@/services/order-service'
 import { ProductService } from '@/services/product-service'
-import { CategoryService } from '@/services/category-service'
+import { CategoryService } from '@/services/product-service'
 
 const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)']
 

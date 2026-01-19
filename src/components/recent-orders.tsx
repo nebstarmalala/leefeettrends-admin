@@ -89,7 +89,7 @@ export default function RecentOrders() {
           >
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-xs sm:text-sm font-semibold text-primary flex-shrink-0">
-                {order.customer.split(' ').map(n => n[0]).join('')}
+                {order.customer.split(' ').map((n: string) => n[0]).join('')}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">

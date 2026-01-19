@@ -59,23 +59,26 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-background to-secondary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Lee Feet Trends</h1>
-          <p className="text-muted-foreground">Admin Dashboard</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-primary-foreground font-bold text-xl sm:text-2xl">LF</span>
+          </div>
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-1 sm:mb-2">Lee Feet Trends</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Admin Dashboard</p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-card border border-border rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Welcome Back</h2>
-          <p className="text-muted-foreground mb-6">Sign in to your account to continue</p>
+        <div className="bg-card border border-border rounded-2xl shadow-lg p-5 sm:p-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-1 sm:mb-2">Welcome Back</h2>
+          <p className="text-sm sm:text-base text-muted-foreground mb-5 sm:mb-6">Sign in to your account to continue</p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {/* Email Input */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5 sm:mb-2">
                 Email Address
               </label>
               <Input
@@ -85,13 +88,13 @@ export default function Login() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="admin@example.com"
-                className="w-full"
+                className="w-full h-11 sm:h-10 text-base sm:text-sm"
               />
             </div>
 
             {/* Password Input */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5 sm:mb-2">
                 Password
               </label>
               <div className="relative">
@@ -102,12 +105,12 @@ export default function Login() {
                   value={formData.password}
                   onChange={handleInputChange}
                   placeholder="••••••••"
-                  className="w-full"
+                  className="w-full h-11 sm:h-10 text-base sm:text-sm pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
                   aria-label="Toggle password visibility"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -120,7 +123,7 @@ export default function Login() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 rounded border-border bg-secondary"
+                  className="w-4 h-4 rounded border-border bg-secondary accent-primary"
                 />
                 <span className="text-foreground">Remember me</span>
               </label>
@@ -133,24 +136,31 @@ export default function Login() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 sm:h-10 text-base sm:text-sm font-medium"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Signing in...
+                </span>
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </form>
 
           {/* Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-3">Demo Credentials:</p>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <p><span className="font-medium">Email:</span> admin@example.com</p>
-              <p><span className="font-medium">Password:</span> demo123</p>
+          <div className="mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-border">
+            <p className="text-xs text-muted-foreground text-center mb-2 sm:mb-3">Demo Credentials:</p>
+            <div className="space-y-1.5 sm:space-y-2 text-xs text-muted-foreground bg-secondary/50 rounded-xl p-3">
+              <p><span className="font-medium text-foreground">Email:</span> admin@example.com</p>
+              <p><span className="font-medium text-foreground">Password:</span> demo123</p>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-6 text-sm text-muted-foreground">
+        <div className="text-center mt-4 sm:mt-6 text-xs sm:text-sm text-muted-foreground">
           <p>
             Protected Admin Area{' '}
             <span className="text-foreground font-medium">© 2026</span>

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Package, ShoppingCart, Users, Mail, LogOut, ChevronRight, X } from 'lucide-react'
 import { useAuth } from '@/context/auth-context'
 import { ContactService } from '@/services/contact-service'
+import { OrderService } from '@/services/order-service'
 import { useState, useEffect } from 'react'
 
 type Page = 'dashboard' | 'products' | 'orders' | 'customers' | 'messages'
@@ -25,20 +26,29 @@ export default function Sidebar({ currentPage, setCurrentPage, isOpen, onClose }
   const navigate = useNavigate()
   const { logout } = useAuth()
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number | null>(null)
+  const [newOrdersCount, setNewOrdersCount] = useState<number | null>(null)
 
   useEffect(() => {
-    const fetchUnreadMessages = async () => {
+    const fetchData = async () => {
       try {
+        // Fetch unread messages
         const messages = await ContactService.getAll()
         const unreadCount = messages.filter(message => message.status === 'unread').length
-        setUnreadMessagesCount(unreadCount)
+        setUnreadMessagesCount(unreadCount > 0 ? unreadCount : null)
+
+        // Fetch new orders (pending)
+        const orders = await OrderService.getAll()
+        const newCount = orders.filter(order => order.status === 'pending').length
+        setNewOrdersCount(newCount > 0 ? newCount : null)
+
       } catch (error) {
-        console.error('Failed to fetch unread messages:', error)
-        setUnreadMessagesCount(0) // Set to 0 or handle error display
+        console.error('Failed to fetch sidebar data:', error)
+        setUnreadMessagesCount(null)
+        setNewOrdersCount(null)
       }
     }
 
-    fetchUnreadMessages()
+    fetchData()
   }, [])
 
   const handleLogout = () => {
@@ -54,7 +64,7 @@ export default function Sidebar({ currentPage, setCurrentPage, isOpen, onClose }
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
     { id: 'products', label: 'Products', icon: Package, badge: null },
-    { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: null },
+    { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: newOrdersCount },
     { id: 'customers', label: 'Customers', icon: Users, badge: null },
     { id: 'messages', label: 'Messages', icon: Mail, badge: unreadMessagesCount },
   ]

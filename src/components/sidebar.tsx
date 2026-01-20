@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Package, ShoppingCart, Users, Mail, LogOut, ChevronRight, X } from 'lucide-react'
 import { useAuth } from '@/context/auth-context'
+import { ContactService } from '@/services/contact-service'
+import { useState, useEffect } from 'react'
 
 type Page = 'dashboard' | 'products' | 'orders' | 'customers' | 'messages'
 
@@ -13,15 +15,31 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
-  { id: 'products', label: 'Products', icon: Package, badge: '24' },
-  { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '12' },
+  { id: 'products', label: 'Products', icon: Package, badge: null },
+  { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: null },
   { id: 'customers', label: 'Customers', icon: Users, badge: null },
-  { id: 'messages', label: 'Messages', icon: Mail, badge: '3' },
+  { id: 'messages', label: 'Messages', icon: Mail, badge: null },
 ]
 
 export default function Sidebar({ currentPage, setCurrentPage, isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { logout } = useAuth()
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    const fetchUnreadMessages = async () => {
+      try {
+        const messages = await ContactService.getAll()
+        const unreadCount = messages.filter(message => message.status === 'unread').length
+        setUnreadMessagesCount(unreadCount)
+      } catch (error) {
+        console.error('Failed to fetch unread messages:', error)
+        setUnreadMessagesCount(0) // Set to 0 or handle error display
+      }
+    }
+
+    fetchUnreadMessages()
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -32,6 +50,14 @@ export default function Sidebar({ currentPage, setCurrentPage, isOpen, onClose }
     setCurrentPage(page)
     onClose() // Close sidebar on mobile after selection
   }
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
+    { id: 'products', label: 'Products', icon: Package, badge: null },
+    { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: null },
+    { id: 'customers', label: 'Customers', icon: Users, badge: null },
+    { id: 'messages', label: 'Messages', icon: Mail, badge: unreadMessagesCount },
+  ]
 
   return (
     <>
@@ -113,18 +139,6 @@ export default function Sidebar({ currentPage, setCurrentPage, isOpen, onClose }
 
         {/* Footer Section */}
         <div className="p-3 sm:p-4 border-t border-sidebar-border/50 space-y-3">
-          {/* Help Card - Hidden on small screens */}
-          <div className="hidden sm:block p-4 rounded-xl bg-gradient-to-br from-sidebar-accent to-sidebar-accent/50 border border-sidebar-border/30">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm">?</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-sidebar-foreground">Need help?</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Check our documentation</p>
-              </div>
-            </div>
-          </div>
 
           {/* Logout Button */}
           <button

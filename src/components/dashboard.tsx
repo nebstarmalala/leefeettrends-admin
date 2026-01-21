@@ -1,90 +1,51 @@
 import { useState, useEffect } from 'react'
-import { ShoppingCart, Users, Package, DollarSign, ArrowUpRight, Calendar } from 'lucide-react'
+import { ShoppingCart, Users, Package, DollarSign, ArrowUpRight, ArrowDownRight, Calendar } from 'lucide-react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import MetricCard from './metric-card'
-import SalesChart from './sales-chart'
-import RecentOrders from './recent-orders'
-import { OrderService } from '@/services/order-service'
-import { CustomerService } from '@/services/customer-service'
-import { ProductService } from '@/services/product-service'
-import { query } from '@/lib/database'
+import {
+  DashboardService,
+  DashboardStats,
+  SalesByCategory,
+  MonthlyPerformance,
+  RecentOrder,
+  LowStockProduct
+} from '@/services/dashboard-service'
 
-const COLORS = ['#f97316', '#10b981', '#3b82f6', '#8b5cf6']
+const COLORS = ['#f97316', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6']
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
-  const [metrics, setMetrics] = useState<any[]>([])
-  const [salesByCategory, setSalesByCategory] = useState<any[]>([])
-  const [monthlyData, setMonthlyData] = useState<any[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [salesByCategory, setSalesByCategory] = useState<SalesByCategory[]>([])
+  const [monthlyData, setMonthlyData] = useState<MonthlyPerformance[]>([])
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([])
 
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
         setLoading(true)
-        
-        // Load basic counts
-        const [orders, customers, products, recentOrders] = await Promise.all([
-          OrderService.getAll(),
-          CustomerService.getAll(),
-          ProductService.getAll(),
-          OrderService.getAll()
+
+        const [
+          statsData,
+          salesByCategoryData,
+          monthlyPerformanceData,
+          recentOrdersData,
+          lowStockData
+        ] = await Promise.all([
+          DashboardService.getStats(),
+          DashboardService.getSalesByCategory(),
+          DashboardService.getMonthlyPerformance(),
+          DashboardService.getRecentOrders(),
+          DashboardService.getLowStockProducts()
         ])
 
-        // Calculate metrics
-        const totalRevenue = orders.reduce((sum: any, order: any) => sum + (order.total_amount || 0), 0)
-        const totalStock = products.reduce((sum: any, product: any) => sum + (product.stock_quantity || 0), 0)
-        
-        // Generate mock analytics data (in real app, this would come from DB)
-        setSalesByCategory([
-          { name: 'Electronics', value: Math.floor(totalRevenue * 0.4) },
-          { name: 'Clothing', value: Math.floor(totalRevenue * 0.3) },
-          { name: 'Home & Garden', value: Math.floor(totalRevenue * 0.2) },
-          { name: 'Books', value: Math.floor(totalRevenue * 0.1) },
-        ])
-
-        setMonthlyData([
-          { month: 'Jan', sales: orders.length, revenue: Math.floor(totalRevenue * 0.3) },
-          { month: 'Feb', sales: Math.floor(orders.length * 0.8), revenue: Math.floor(totalRevenue * 0.25) },
-          { month: 'Mar', sales: Math.floor(orders.length * 0.6), revenue: Math.floor(totalRevenue * 0.2) },
-          { month: 'Apr', sales: Math.floor(orders.length * 0.7), revenue: Math.floor(totalRevenue * 0.15) },
-          { month: 'May', sales: Math.floor(orders.length * 0.5), revenue: Math.floor(totalRevenue * 0.1) },
-        ])
-
-        setMetrics([
-          {
-            title: 'Total Revenue',
-            value: `$${totalRevenue.toLocaleString()}`,
-            change: '+12.5%',
-            trend: 'up' as const,
-            icon: DollarSign,
-            color: 'chart-1'
-          },
-          {
-            title: 'Total Orders',
-            value: orders.length.toString(),
-            change: '+8.2%',
-            trend: 'up' as const,
-            icon: ShoppingCart,
-            color: 'chart-2'
-          },
-          {
-            title: 'Total Customers',
-            value: customers.length.toString(),
-            change: '+2.1%',
-            trend: 'up' as const,
-            icon: Users,
-            color: 'chart-3'
-          },
-          {
-            title: 'Inventory Count',
-            value: totalStock.toLocaleString(),
-            change: '-3.4%',
-            trend: 'down' as const,
-            icon: Package,
-            color: 'chart-4'
-          },
-        ])
-      } catch (error: any) {
+        setStats(statsData)
+        setSalesByCategory(salesByCategoryData)
+        setMonthlyData(monthlyPerformanceData)
+        setRecentOrders(recentOrdersData)
+        setLowStockProducts(lowStockData)
+      } catch (error) {
         console.error('Failed to load dashboard data:', error)
       } finally {
         setLoading(false)
@@ -94,7 +55,7 @@ export default function Dashboard() {
     loadDashboardData()
   }, [])
 
-  if (loading) {
+  if (loading || !stats) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -104,6 +65,41 @@ export default function Dashboard() {
       </div>
     )
   }
+
+  const metrics = [
+    {
+      title: 'Total Revenue',
+      value: `$${stats.totalRevenue.toLocaleString()}`,
+      change: `${parseFloat(stats.revenueChange) >= 0 ? '+' : ''}${stats.revenueChange}%`,
+      trend: parseFloat(stats.revenueChange) >= 0 ? 'up' as const : 'down' as const,
+      icon: DollarSign,
+      color: 'chart-1'
+    },
+    {
+      title: 'Total Orders',
+      value: stats.totalOrders.toString(),
+      change: `${parseFloat(stats.ordersChange) >= 0 ? '+' : ''}${stats.ordersChange}%`,
+      trend: parseFloat(stats.ordersChange) >= 0 ? 'up' as const : 'down' as const,
+      icon: ShoppingCart,
+      color: 'chart-2'
+    },
+    {
+      title: 'Total Customers',
+      value: stats.totalCustomers.toString(),
+      change: `${parseFloat(stats.customersChange) >= 0 ? '+' : ''}${stats.customersChange}%`,
+      trend: parseFloat(stats.customersChange) >= 0 ? 'up' as const : 'down' as const,
+      icon: Users,
+      color: 'chart-3'
+    },
+    {
+      title: 'Inventory Count',
+      value: stats.totalStock.toLocaleString(),
+      change: `${stats.totalProducts} products`,
+      trend: 'up' as const,
+      icon: Package,
+      color: 'chart-4'
+    },
+  ]
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-background min-h-screen">
@@ -128,124 +124,181 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        <div className="lg:col-span-2">
-          <SalesChart />
+        {/* Recent Orders */}
+        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">Recent Orders</h3>
+          {recentOrders.length > 0 ? (
+            <div className="space-y-3">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{order.order_number}</p>
+                    <p className="text-xs text-muted-foreground truncate">{order.customer_name || 'Unknown'}</p>
+                  </div>
+                  <div className="text-right ml-4">
+                    <p className="text-sm font-semibold text-foreground">${order.total_amount?.toLocaleString()}</p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      order.status === 'delivered' ? 'bg-green-500/20 text-green-600' :
+                      order.status === 'shipped' ? 'bg-blue-500/20 text-blue-600' :
+                      order.status === 'processing' ? 'bg-yellow-500/20 text-yellow-600' :
+                      order.status === 'cancelled' ? 'bg-red-500/20 text-red-600' :
+                      'bg-gray-500/20 text-gray-600'
+                    }`}>
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-8">No recent orders</p>
+          )}
         </div>
-        <div className="lg:col-span-1">
-          <RecentOrders />
+
+        {/* Low Stock Alert */}
+        <div className="lg:col-span-1 bg-card border border-border rounded-2xl p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">Low Stock Alert</h3>
+          {lowStockProducts.length > 0 ? (
+            <div className="space-y-3">
+              {lowStockProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between p-3 bg-red-500/10 rounded-xl border border-red-500/20">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+                    <p className="text-xs text-muted-foreground">${product.price}</p>
+                  </div>
+                  <div className="text-right ml-4">
+                    <p className="text-sm font-bold text-red-500">{product.stock_quantity}</p>
+                    <p className="text-xs text-muted-foreground">in stock</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-8">All products well stocked</p>
+          )}
         </div>
       </div>
 
       {/* Analytics Section */}
       <div className="mb-4 sm:mb-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg sm:text-xl font-bold text-foreground">Analytics Overview</h3>
-          <button className="flex items-center gap-1 text-xs sm:text-sm text-primary hover:text-primary/80 transition-colors">
-            View all reports
-            <ArrowUpRight size={14} />
-          </button>
-        </div>
+        <h3 className="text-lg sm:text-xl font-bold text-foreground">Analytics Overview</h3>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Pie Chart */}
+        {/* Pie Chart - Sales by Category */}
         <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 hover:shadow-lg hover:shadow-black/5 transition-all duration-300">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
             <h3 className="text-base sm:text-lg font-semibold text-foreground">Sales by Category</h3>
-            <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">This month</span>
+            <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">All time</span>
           </div>
-          <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
-            <PieChart>
-              <Pie
-                data={salesByCategory}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={70}
-                fill="#8884d8"
-                paddingAngle={4}
-                dataKey="value"
-                className="sm:[&_.recharts-pie-sector]:!innerRadius-[60px] sm:[&_.recharts-pie-sector]:!outerRadius-[100px]"
-              >
-                {salesByCategory.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          {salesByCategory.length > 0 && salesByCategory[0].value > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
+                <PieChart>
+                  <Pie
+                    data={salesByCategory}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={70}
+                    fill="#8884d8"
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {salesByCategory.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      fontSize: '12px',
+                    }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Sales']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
+                {salesByCategory.map((item, index) => (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <div
+                      className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <span className="text-xs sm:text-sm text-muted-foreground truncate">{item.name}</span>
+                    <span className="text-xs sm:text-sm font-semibold text-foreground ml-auto">${item.value.toLocaleString()}</span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  fontSize: '12px',
-                }}
-                labelStyle={{ color: 'var(--foreground)' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
-            {salesByCategory.map((item, index) => (
-              <div key={item.name} className="flex items-center gap-2">
-                <div
-                  className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: COLORS[index] }}
-                />
-                <span className="text-xs sm:text-sm text-muted-foreground truncate">{item.name}</span>
-                <span className="text-xs sm:text-sm font-semibold text-foreground ml-auto">${item.value.toLocaleString()}</span>
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+              No sales data available
+            </div>
+          )}
         </div>
 
-        {/* Bar Chart */}
+        {/* Bar Chart - Monthly Performance */}
         <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 hover:shadow-lg hover:shadow-black/5 transition-all duration-300">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
             <h3 className="text-base sm:text-lg font-semibold text-foreground">Monthly Performance</h3>
             <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">Last 6 months</span>
           </div>
-          <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
-            <BarChart data={monthlyData} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis
-                dataKey="month"
-                stroke="var(--muted-foreground)"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="var(--muted-foreground)"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `$${value / 1000}k`}
-                width={35}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  fontSize: '12px',
-                }}
-                labelStyle={{ color: 'var(--foreground)', fontWeight: 600 }}
-              />
-              <Legend wrapperStyle={{ fontSize: '12px' }} />
-              <Bar
-                dataKey="sales"
-                name="Sales"
-                fill="#f97316"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                dataKey="revenue"
-                name="Revenue"
-                fill="#10b981"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          {monthlyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
+              <BarChart data={monthlyData} barGap={4}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  stroke="var(--muted-foreground)"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="var(--muted-foreground)"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => value >= 1000 ? `$${value / 1000}k` : `$${value}`}
+                  width={45}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    fontSize: '12px',
+                  }}
+                  formatter={(value: number, name: string) => [
+                    name === 'revenue' ? `$${value.toLocaleString()}` : value,
+                    name === 'revenue' ? 'Revenue' : 'Orders'
+                  ]}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Bar
+                  dataKey="orders"
+                  name="Orders"
+                  fill="#f97316"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="revenue"
+                  name="Revenue"
+                  fill="#10b981"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+              No monthly data available
+            </div>
+          )}
         </div>
       </div>
 
@@ -258,38 +311,37 @@ export default function Dashboard() {
               <DollarSign size={14} className="sm:w-4 sm:h-4 text-orange-500" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2 sm:mt-3">$187.50</p>
-          <p className="text-xs sm:text-sm text-emerald-600 mt-1.5 sm:mt-2 flex items-center gap-1">
-            <ArrowUpRight size={12} className="sm:w-3.5 sm:h-3.5" />
-            5.2% from last month
+          <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2 sm:mt-3">
+            ${stats.avgOrderValue.toFixed(2)}
+          </p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 sm:mt-2">
+            Based on {stats.totalOrders} orders
           </p>
         </div>
 
         <div className="group bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 rounded-2xl p-4 sm:p-6 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Customer Lifetime Value</h4>
+            <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Pending Orders</h4>
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Users size={14} className="sm:w-4 sm:h-4 text-blue-500" />
+              <ShoppingCart size={14} className="sm:w-4 sm:h-4 text-blue-500" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2 sm:mt-3">$2,145</p>
-          <p className="text-xs sm:text-sm text-emerald-600 mt-1.5 sm:mt-2 flex items-center gap-1">
-            <ArrowUpRight size={12} className="sm:w-3.5 sm:h-3.5" />
-            12.8% from last month
+          <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2 sm:mt-3">{stats.pendingOrders}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 sm:mt-2">
+            Awaiting processing
           </p>
         </div>
 
         <div className="group bg-gradient-to-br from-violet-500/10 to-violet-500/5 border border-violet-500/20 rounded-2xl p-4 sm:p-6 hover:shadow-lg hover:shadow-violet-500/10 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Conversion Rate</h4>
+            <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Unread Messages</h4>
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-              <ShoppingCart size={14} className="sm:w-4 sm:h-4 text-violet-500" />
+              <Users size={14} className="sm:w-4 sm:h-4 text-violet-500" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2 sm:mt-3">3.24%</p>
-          <p className="text-xs sm:text-sm text-red-500 mt-1.5 sm:mt-2 flex items-center gap-1">
-            <ArrowUpRight size={12} className="sm:w-3.5 sm:h-3.5 rotate-90" />
-            0.5% from last month
+          <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2 sm:mt-3">{stats.unreadMessages}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 sm:mt-2">
+            Contact inquiries
           </p>
         </div>
       </div>

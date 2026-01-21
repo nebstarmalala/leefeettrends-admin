@@ -1,11 +1,15 @@
 import { query } from '../src/lib/database';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function runMigrations(): Promise<void> {
   try {
     console.log('Running database migrations...');
-    
+
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     
@@ -40,7 +44,9 @@ export async function resetDatabase(): Promise<void> {
   }
 }
 
-if (require.main === module) {
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+
+if (isMainModule) {
   (async () => {
     try {
       await runMigrations();

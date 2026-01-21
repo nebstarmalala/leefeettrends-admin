@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "tsx server/index.ts",
+    "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "init-db": "tsx scripts/init-db.ts",
-    "migrate": "tsx database/migrate.ts"
+    "migrate": "tsx database/migrate.ts",
+    "create-user": "tsx scripts/create-user.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -44,9 +47,11 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
+    "cors": "^2.8.5",
     "date-fns": "4.1.0",
     "dotenv": "^17.2.3",
     "embla-carousel-react": "8.5.1",
+    "express": "^5.2.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "mysql2": "^3.16.1",
@@ -65,10 +70,13 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.19.7",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.2.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tsx": "^4.21.0",

@@ -31,7 +31,7 @@ This guide will help you set up MariaDB for your leefeettrends-admin application
 2. Create a database user (optional but recommended):
    ```sql
    CREATE USER 'leefeettrends'@'localhost' IDENTIFIED BY 'your_password';
-   GRANT ALL PRIVILEGES ON leefeettrends_db.* TO 'leefeettrends'@'localhost';
+   GRANT ALL PRIVILEGES ON leefeettrends.* TO 'leefeettrends'@'localhost';
    FLUSH PRIVILEGES;
    ```
 
